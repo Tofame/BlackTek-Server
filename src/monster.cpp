@@ -975,7 +975,7 @@ void Monster::onThinkDefense(uint32_t interval)
 
 			uint32_t summonCount = 0;
 			for (Creature* summon : summons) {
-				if (summon->getName() == summonBlock.name) {
+				if (summon->getRegisteredName() == summonBlock.name) {
 					++summonCount;
 				}
 			}
