@@ -974,11 +974,14 @@ void Monster::onThinkDefense(uint32_t interval)
 			}
 
 			uint32_t summonCount = 0;
-			for (Creature* summon : summons) {
-				if (summon->getRegisteredName() == summonBlock.name) {
-					++summonCount;
-				}
-			}
+            std::string lowerSummonName = summonBlock.name;
+            toLowerCaseString(lowerSummonName);
+
+            for (Creature* summon : summons) {
+                if (summon->getRegisteredName() == lowerSummonName) {
+                    ++summonCount;
+                }
+            }
 
 			if (summonCount >= summonBlock.max) {
 				continue;
