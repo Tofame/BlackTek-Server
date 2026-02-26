@@ -341,6 +341,7 @@ class Game
 
 		void addCreatureCheck(const CreaturePtr& creature) noexcept;
         static void removeCreatureCheck(const CreaturePtr& creature) noexcept;
+        void removeCreatureFromThinkList(const CreaturePtr& creature) noexcept;
 
         void creature_think_cycle() noexcept;
 

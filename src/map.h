@@ -220,6 +220,7 @@ class Map
 		bool loadMap(const std::string& identifier, bool loadHouses);
 	
 		void clearChunkSpectatorCache()	{
+			spectatorCache.clear();
 			playersSpectatorCache.clear();
 			chunksSpectatorCache.clear();
 		}

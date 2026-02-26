@@ -1873,6 +1873,9 @@ class LuaEnvironment : public LuaScriptInterface
 		uint32_t createAreaObject(LuaScriptInterface* interface);
 		void clearAreaObjects(LuaScriptInterface* interface);
 
+		// Cancel timer events that have this player as a parameter (prevents Lua from holding Player refs)
+		void cancelTimerEventsForPlayer(const PlayerPtr& player);
+
 	private:
 		void executeTimerEvent(uint32_t eventIndex);
 

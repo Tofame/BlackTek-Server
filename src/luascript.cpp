@@ -21611,6 +21611,38 @@ void LuaEnvironment::clearAreaObjects(LuaScriptInterface* interface)
 	it->second.clear();
 }
 
+void LuaEnvironment::cancelTimerEventsForPlayer(const PlayerPtr& player)
+{
+	std::vector<uint32_t> toCancel;
+	for (const auto& [eventId, eventDesc] : timerEvents) {
+		for (int32_t paramRef : eventDesc.parameters) {
+			lua_rawgeti(luaState, LUA_REGISTRYINDEX, paramRef);
+			const bool isPlayer = LuaScriptInterface::getUserdataType(luaState, -1) == LuaData_Player;
+			if (isPlayer) {
+				const auto paramPlayer = LuaScriptInterface::getSharedPtr<Player>(luaState, -1);
+				lua_pop(luaState, 1);
+				if (paramPlayer == player) {
+					toCancel.push_back(eventId);
+					break;
+				}
+			} else {
+				lua_pop(luaState, 1);
+			}
+		}
+	}
+	for (uint32_t eventId : toCancel) {
+		auto it = timerEvents.find(eventId);
+		if (it == timerEvents.end()) continue;
+		LuaTimerEventDesc timerEventDesc = std::move(it->second);
+		timerEvents.erase(it);
+		g_scheduler.stopEvent(timerEventDesc.eventId);
+		luaL_unref(luaState, LUA_REGISTRYINDEX, timerEventDesc.function);
+		for (int32_t paramRef : timerEventDesc.parameters) {
+			luaL_unref(luaState, LUA_REGISTRYINDEX, paramRef);
+		}
+	}
+}
+
 void LuaEnvironment::executeTimerEvent(uint32_t eventIndex)
 {
 	auto it = timerEvents.find(eventIndex);

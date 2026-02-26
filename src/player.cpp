@@ -706,6 +706,8 @@ Player::Player(ProtocolGame_ptr p) :
 
 Player::~Player()
 {
+	std::cerr << "player destructor called for " << name << std::endl;
+
 	for (const auto& item : inventory) {
 		if (item) {
 			item->clearParent();
@@ -1965,6 +1967,10 @@ void Player::onRemoveCreature(const CreaturePtr& creature, bool isLogout)
 			g_game.internalCloseTrade(this->getPlayer());
 		}
 
+		if (guild) {
+			guild->removeMember(this->getPlayer());
+		}
+
 		closeShopWindow();
 
 		clearPartyInvitations();
@@ -2890,6 +2896,10 @@ void Player::removeList()
 
 	for (const auto& it : g_game.getPlayers()) {
 		it.second->notifyStatusChange(this->getPlayer(), VIPSTATUS_OFFLINE);
+	}
+
+	if (guild) {
+		guild->removeMember(this->getPlayer());
 	}
 }
 
@@ -4865,6 +4875,7 @@ void Player::removePartyInvitation(PartyPtr party)
 
 void Player::clearPartyInvitations()
 {
+	std::cout << "[DEBUG] clearPartyInvitations START: " << getName() << " has " << getPlayer().use_count() << " refs" << std::endl;
 	for (auto invitingParty : invitePartyList) {
 		invitingParty->removeInvite(this->getPlayer(), false);
 	}
