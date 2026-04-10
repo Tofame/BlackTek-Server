@@ -7,6 +7,7 @@
 #include "configmanager.h"
 #include "game.h"
 #include "accountmanager.h"
+#include "questpouch.h"
 
 #include <fmt/format.h>
 
@@ -891,6 +892,32 @@ bool IOLoginData::loadPlayer(const PlayerPtr& player, DBResult_ptr result, std::
 		}
 	}
 
+	//load quest pouch items
+	itemMap.clear();
+
+	if ((result = db.storeQuery(fmt::format("SELECT `pid`, `sid`, `itemtype`, `count`, `attributes`, `augments`, `skills`, `stats` FROM `player_questpouchitems` WHERE `player_id` = {:d} ORDER BY `sid` DESC", player->getGUID())))) {
+		loadItems(itemMap, result);
+
+		for (ItemMap::const_reverse_iterator it = itemMap.rbegin(), end = itemMap.rend(); it != end; ++it) {
+			const std::pair<ItemPtr, int32_t>& pair = it->second;
+			auto item = pair.first;
+
+			if (int32_t pid = pair.second; pid >= 0 && pid < 100) {
+				player->getQuestPouch()->internalAddThing(item);
+			} else {
+				ItemMap::const_iterator it2 = itemMap.find(pid);
+
+				if (it2 == itemMap.end()) {
+					continue;
+				}
+
+				if (auto container = it2->second.first->getContainer()) {
+					container->internalAddThing(item);
+				}
+			}
+		}
+	}
+
 	//load storage map
 	if ((result = db.storeQuery(fmt::format("SELECT `key`, `value` FROM `player_storage` WHERE `player_id` = {:d}", player->getGUID())))) {
 		do {
@@ -1534,6 +1561,22 @@ bool IOLoginData::savePlayer(const PlayerPtr& player)
 	}
 
 	if (!saveItems(player, itemList, storeInboxQuery, propWriteStream)) {
+		return false;
+	}
+
+	//save quest pouch items
+	if (!db.executeQuery(fmt::format("DELETE FROM `player_questpouchitems` WHERE `player_id` = {:d}", player->getGUID()))) {
+		return false;
+	}
+
+	DBInsert questPouchQuery("INSERT INTO `player_questpouchitems` (`player_id`, `pid`, `sid`, `itemtype`, `count`, `attributes`, `augments`, `skills`, `stats`) VALUES ");
+	itemList.clear();
+
+	for (auto item : player->getQuestPouch()->getItemList()) {
+		itemList.emplace_back(0, item);
+	}
+
+	if (!saveItems(player, itemList, questPouchQuery, propWriteStream)) {
 		return false;
 	}
 

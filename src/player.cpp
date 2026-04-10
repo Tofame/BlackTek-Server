@@ -16,6 +16,7 @@
 #include "scheduler.h"
 #include "weapons.h"
 #include "rewardchest.h"
+#include "questpouch.h"
 #include "player.h"
 #include "spells.h"
 #include "accountmanager.h"
@@ -699,7 +700,7 @@ static std::vector<uint32_t> GetDiaganolDeflectArea(uint32_t targets) {
 
 
 Player::Player(ProtocolGame_ptr p) :
-	lastPing(OTSYS_TIME()), lastPong(lastPing), client(std::move(p)), inbox(std::make_shared<Inbox>(ITEM_INBOX)), storeInbox(std::make_shared<StoreInbox>(ITEM_STORE_INBOX))
+	lastPing(OTSYS_TIME()), lastPong(lastPing), client(std::move(p)), inbox(std::make_shared<Inbox>(ITEM_INBOX)), storeInbox(std::make_shared<StoreInbox>(ITEM_STORE_INBOX)), questPouch(std::make_shared<QuestPouch>(ITEM_QUEST_POUCH))
 {
 	thing_subtype = ThingSubType::Player;
 	creature_subtype = CreatureSubType::Player;

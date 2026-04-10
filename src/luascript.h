@@ -1293,6 +1293,14 @@ class LuaScriptInterface
 		static int luaPlayerGetStoreInbox(lua_State* L);
 		static int luaPlayerIsNearDepotBox(lua_State* L);
 
+		// Quest Pouch
+		static int luaPlayerGetQuestPouch(lua_State* L);
+		static int luaPlayerGetQuestPouchItemCount(lua_State* L);
+		static int luaPlayerAddQuestPouchItem(lua_State* L);
+		static int luaPlayerRemoveQuestPouchItem(lua_State* L);
+		static int luaPlayerGetQuestPouchItems(lua_State* L);
+		static int luaPlayerGetQuestPouchTotalCount(lua_State* L);
+
 		static int luaPlayerGetIdleTime(lua_State* L);
 		static int luaPlayerResetIdleTime(lua_State* L);
 

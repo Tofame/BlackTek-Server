@@ -300,6 +300,10 @@ class Player final : public Creature, public Cylinder
 			return storeInbox;
 		}
 
+		QuestPouchPtr getQuestPouch() const {
+			return questPouch;
+		}
+
 		uint16_t getClientIcons() const;
 
 		Vocation* getVocation() const {
@@ -1632,6 +1636,7 @@ class Player final : public Creature, public Cylinder
 		ItemPtr inventory[CONST_SLOT_LAST + 1] = {};
 		StoreInboxPtr storeInbox = nullptr;
 		RewardChestPtr rewardChest = nullptr;
+		QuestPouchPtr questPouch = nullptr;
 		DepotLockerPtr depotLocker = nullptr;
 		NpcPtr shopOwner = nullptr;
 		PlayerPtr tradePartner = nullptr;

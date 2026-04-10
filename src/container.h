@@ -91,8 +91,16 @@ class Container : public Item, public Cylinder
 		virtual RewardChestPtr getRewardChest() {
 			return nullptr;
 		}
-	
+
 		virtual RewardChestConstPtr getRewardChest() const {
+			return nullptr;
+		}
+
+		virtual QuestPouchPtr getQuestPouch() {
+			return nullptr;
+		}
+
+		virtual QuestPouchConstPtr getQuestPouch() const {
 			return nullptr;
 		}
 
@@ -207,6 +215,7 @@ class Container : public Item, public Cylinder
 
 		friend class ContainerIterator;
 		friend class IOMapSerialize;
+		friend class QuestPouch;
 };
 
 #endif

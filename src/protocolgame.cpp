@@ -3132,6 +3132,7 @@ void ProtocolGame::sendAddCreature(const CreatureConstPtr& creature, const Posit
 	}
 
 	sendInventoryItem(CONST_SLOT_STORE_INBOX, player->getStoreInbox()->getItem());
+	sendInventoryItem(CONST_SLOT_QUEST_POUCH, player->getQuestPouch()->getItem());
 
 	const bool open = g_config.GetBoolean(ConfigManager::AUTO_OPEN_CONTAINERS);
     if (open)

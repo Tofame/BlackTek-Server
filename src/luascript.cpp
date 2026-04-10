@@ -30,6 +30,7 @@
 #include "luavariant.h"
 #include "augments.h"
 #include "zones.h"
+#include "questpouch.h"
 
 extern Chat* g_chat;
 extern Game g_game;
@@ -2856,6 +2857,14 @@ void LuaScriptInterface::registerFunctions()
 
 	registerMethod("Player", "getStoreInbox", luaPlayerGetStoreInbox);
 	registerMethod("Player", "isNearDepotBox", luaPlayerIsNearDepotBox);
+
+	// Quest Pouch
+	registerMethod("Player", "getQuestPouch", luaPlayerGetQuestPouch);
+	registerMethod("Player", "getQuestPouchItemCount", luaPlayerGetQuestPouchItemCount);
+	registerMethod("Player", "addQuestPouchItem", luaPlayerAddQuestPouchItem);
+	registerMethod("Player", "removeQuestPouchItem", luaPlayerRemoveQuestPouchItem);
+	registerMethod("Player", "getQuestPouchItems", luaPlayerGetQuestPouchItems);
+	registerMethod("Player", "getQuestPouchTotalCount", luaPlayerGetQuestPouchTotalCount);
 
 	registerMethod("Player", "getIdleTime", luaPlayerGetIdleTime);
 	registerMethod("Player", "resetIdleTime", luaPlayerResetIdleTime);
@@ -13687,6 +13696,174 @@ int LuaScriptInterface::luaPlayerIsNearDepotBox(lua_State* L)
 	pushBoolean(L, player->isNearDepotBox());
 	return 1;
 }
+
+// Quest Pouch functions
+int LuaScriptInterface::luaPlayerGetQuestPouch(lua_State* L)
+{
+	// player:getQuestPouch()
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	const auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	pushSharedPtr(L, questPouch);
+	setMetatable(L, -1, "Container");
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerGetQuestPouchItemCount(lua_State* L)
+{
+	// player:getQuestPouchItemCount(itemId or aid or uid)
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnil(L);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	if (lua_isnumber(L, 2)) {
+		int32_t param = getNumber<int32_t>(L, 2);
+		
+		// Check if it's a positive item ID
+		if (param > 0 && param <= 65535) {
+			lua_pushnumber(L, questPouch->getItemIdCount(param));
+		} else if (param < 0) {
+			// Negative values for action ID
+			lua_pushnumber(L, questPouch->getItemByAidCount(-param));
+		} else {
+			lua_pushnumber(L, 0);
+		}
+	} else {
+		lua_pushnumber(L, 0);
+	}
+	
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerAddQuestPouchItem(lua_State* L)
+{
+	// player:addQuestPouchItem(itemId, count)
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	uint16_t itemId = getNumber<uint16_t>(L, 2);
+	uint32_t count = getNumber<uint32_t>(L, 3, 1);
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	pushBoolean(L, questPouch->addItem(itemId, count));
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerRemoveQuestPouchItem(lua_State* L)
+{
+	// player:removeQuestPouchItem(itemId or uid, count)
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	if (lua_isnumber(L, 2)) {
+		int32_t param = getNumber<int32_t>(L, 2);
+		uint32_t count = getNumber<uint32_t>(L, 3, 1);
+		
+		// Check if it's a positive item ID or UID
+		if (param > 0 && param <= 65535) {
+			pushBoolean(L, questPouch->removeItemById(param, count));
+		} else if (param > 65535) {
+			// Likely a UID
+			pushBoolean(L, questPouch->removeItemByUid(param));
+		} else {
+			pushBoolean(L, false);
+		}
+	} else {
+		pushBoolean(L, false);
+	}
+	
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerGetQuestPouchItems(lua_State* L)
+{
+	// player:getQuestPouchItems(limit, offset)
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_createtable(L, 0, 0);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		lua_createtable(L, 0, 0);
+		return 1;
+	}
+
+	uint32_t limit = getNumber<uint32_t>(L, 2, 50);
+	uint32_t offset = getNumber<uint32_t>(L, 3, 0);
+
+	auto items = questPouch->getItems(limit, offset);
+	lua_createtable(L, items.size(), 0);
+	
+	int index = 1;
+	for (const auto& item : items) {
+		pushSharedPtr(L, item);
+		setMetatable(L, -1, "Item");
+		lua_rawseti(L, -2, index++);
+	}
+
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerGetQuestPouchTotalCount(lua_State* L)
+{
+	// player:getQuestPouchTotalCount()
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		lua_pushnumber(L, 0);
+		return 1;
+	}
+
+	lua_pushnumber(L, questPouch->getTotalItemsCount());
+	return 1;
+}
+
 int LuaScriptInterface::luaPlayerGetIdleTime(lua_State* L)
 {
 	// player:getIdleTime()

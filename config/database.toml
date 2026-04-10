@@ -2,9 +2,9 @@
 
 [mysql]
 host               = "127.0.0.1"
-user               = "forgottenserver"
+user               = "root"
 pass               = ""
-database           = "forgottenserver"
+database           = "blacktek"
 port               = 3306
 socket             = ""
 optimize_on_startup = false
