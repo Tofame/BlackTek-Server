@@ -77,24 +77,46 @@ uint32_t QuestPouch::getItemByUid(uint32_t uid) const {
 
 bool QuestPouch::removeItemById(uint16_t itemId, uint32_t count) {
 	uint32_t remaining = count;
-	
+
 	for (auto it = itemlist.begin(); it != itemlist.end() && remaining > 0;) {
 		auto item = *it;
 		if (item && item->getID() == itemId) {
 			uint32_t itemSubType = item->getSubType();
+			int32_t index = getThingIndex(item);
+
 			if (itemSubType <= remaining) {
+				// Remove entire stack
 				remaining -= itemSubType;
-				it = itemlist.erase(it);
+
+				// Send update to client if container has a parent
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onRemoveContainerItem(index, item);
+				}
+
 				updateItemWeight(-item->getWeight());
+				ammoCount -= item->getItemCount();
+				item->clearParent();
+				it = itemlist.erase(it);
 			} else {
+				// Reduce stack size
+				const int32_t oldWeight = item->getWeight();
+				ammoCount -= (itemSubType - remaining);
 				item->setSubType(itemSubType - remaining);
+				updateItemWeight(-oldWeight + item->getWeight());
+
+				// Send update to client if container has a parent
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onUpdateContainerItem(index, item, item);
+				}
+
 				remaining = 0;
+				++it;
 			}
 		} else {
 			++it;
 		}
 	}
-	
+
 	return remaining == 0;
 }
 
@@ -102,8 +124,17 @@ bool QuestPouch::removeItemByUid(uint32_t uid) {
 	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
 		auto item = *it;
 		if (item && item->getUniqueId() == uid) {
-			itemlist.erase(it);
+			int32_t index = getThingIndex(item);
+
+			// Send update to client if container has a parent
+			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+				onRemoveContainerItem(index, item);
+			}
+
 			updateItemWeight(-item->getWeight());
+			ammoCount -= item->getItemCount();
+			item->clearParent();
+			itemlist.erase(it);
 			return true;
 		}
 	}
@@ -131,7 +162,17 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 				return false;
 			}
 
-			internalAddThing(newItem);
+			// Add item and trigger notification
+			newItem->setParent(getContainer());
+			itemlist.push_front(newItem);
+			updateItemWeight(newItem->getWeight());
+			ammoCount += newItem->getItemCount();
+
+			// Send update to client if container has a parent
+			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+				onAddContainerItem(newItem);
+			}
+
 			remaining -= stackCount;
 		}
 	} else {
@@ -146,7 +187,16 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 				return false;
 			}
 
-			internalAddThing(newItem);
+			// Add item and trigger notification
+			newItem->setParent(getContainer());
+			itemlist.push_front(newItem);
+			updateItemWeight(newItem->getWeight());
+			ammoCount += newItem->getItemCount();
+
+			// Send update to client if container has a parent
+			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+				onAddContainerItem(newItem);
+			}
 		}
 	}
 

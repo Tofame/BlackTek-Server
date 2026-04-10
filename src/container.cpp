@@ -455,6 +455,10 @@ ReturnValue Container::queryRemove(const ThingPtr& thing, uint32_t count, uint32
 	if (not item->isMoveable() and not hasBitSet(FLAG_IGNORENOTMOVEABLE, flags))
 		return RETURNVALUE_NOTMOVEABLE;
 
+	// Prevent removing items from locked containers (e.g., quest pouch)
+	if (not unlocked)
+		return RETURNVALUE_NOTPOSSIBLE;
+
 	if (actor and g_config.GetBoolean(ConfigManager::ONLY_INVITED_CAN_MOVE_HOUSE_ITEMS))
 	{
 		if (auto ground_tile = item->getTile(); ground_tile && ground_tile->isHouseTile())
