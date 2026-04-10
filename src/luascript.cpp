@@ -2865,6 +2865,8 @@ void LuaScriptInterface::registerFunctions()
 	registerMethod("Player", "removeQuestPouchItem", luaPlayerRemoveQuestPouchItem);
 	registerMethod("Player", "getQuestPouchItems", luaPlayerGetQuestPouchItems);
 	registerMethod("Player", "getQuestPouchTotalCount", luaPlayerGetQuestPouchTotalCount);
+	registerMethod("Player", "removeAllQuestPouchItems", luaPlayerRemoveAllQuestPouchItems);
+	registerMethod("Player", "transferQuestPouchItemToBackpack", luaPlayerTransferQuestPouchItemToBackpack);
 
 	registerMethod("Player", "getIdleTime", luaPlayerGetIdleTime);
 	registerMethod("Player", "resetIdleTime", luaPlayerResetIdleTime);
@@ -13861,6 +13863,88 @@ int LuaScriptInterface::luaPlayerGetQuestPouchTotalCount(lua_State* L)
 	}
 
 	lua_pushnumber(L, questPouch->getTotalItemsCount());
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerRemoveAllQuestPouchItems(lua_State* L)
+{
+	// player:removeAllQuestPouchItems()
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		pushBoolean(L, false);
+		return 1;
+	}
+
+	questPouch->removeAllItems();
+	pushBoolean(L, true);
+	return 1;
+}
+
+int LuaScriptInterface::luaPlayerTransferQuestPouchItemToBackpack(lua_State* L)
+{
+	// player:transferQuestPouchItemToBackpack(itemId or uid, count)
+	const auto player = getSharedPtr<Player>(L, 1);
+	if (!player) {
+		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnil(L);
+		return 1;
+	}
+
+	auto questPouch = player->getQuestPouch();
+	if (!questPouch) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	// Get the player's backpack (CONST_SLOT_BACKPACK = 3)
+	auto backpack = player->getInventoryItem(CONST_SLOT_BACKPACK);
+	if (!backpack) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	auto backpackContainer = backpack->getContainer();
+	if (!backpackContainer) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (!lua_isnumber(L, 2)) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	int32_t param = getNumber<int32_t>(L, 2);
+	uint32_t count = getNumber<uint32_t>(L, 3, 1);
+
+	ItemPtr transferredItem;
+
+	// Check if param is a valid item ID (positive) or UID (large positive number)
+	if (param > 0 && param <= 65535) {
+		// It's an item ID
+		transferredItem = questPouch->transferItemToContainer(param, count, backpackContainer);
+	} else if (param > 65535) {
+		// It's likely a UID
+		transferredItem = questPouch->transferItemByUidToContainer(param, count, backpackContainer);
+	} else {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (transferredItem) {
+		pushSharedPtr(L, transferredItem);
+		setMetatable(L, -1, "Item");
+	} else {
+		lua_pushnil(L);
+	}
+
 	return 1;
 }
 

@@ -1300,6 +1300,8 @@ class LuaScriptInterface
 		static int luaPlayerRemoveQuestPouchItem(lua_State* L);
 		static int luaPlayerGetQuestPouchItems(lua_State* L);
 		static int luaPlayerGetQuestPouchTotalCount(lua_State* L);
+		static int luaPlayerRemoveAllQuestPouchItems(lua_State* L);
+		static int luaPlayerTransferQuestPouchItemToBackpack(lua_State* L);
 
 		static int luaPlayerGetIdleTime(lua_State* L);
 		static int luaPlayerResetIdleTime(lua_State* L);

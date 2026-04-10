@@ -25,6 +25,9 @@ local function onSay(player, words, param)
 		position:sendDistanceEffect(toPositionLow, effect)
 		position:sendDistanceEffect(toPositionHigh, effect)
 	end
+
+	-- removeQuestPouchItem(itemId or uid, count)
+	
 	return false
 end
 

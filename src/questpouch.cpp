@@ -236,3 +236,130 @@ uint32_t QuestPouch::getTotalItemsCount() const {
 	}
 	return count;
 }
+
+void QuestPouch::removeAllItems() {
+	for (auto it = itemlist.begin(); it != itemlist.end();) {
+		auto item = *it;
+		int32_t index = getThingIndex(item);
+
+		// Send update to client if container has a parent
+		if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+			onRemoveContainerItem(index, item);
+		}
+
+		updateItemWeight(-item->getWeight());
+		ammoCount -= item->getItemCount();
+		item->clearParent();
+		it = itemlist.erase(it);
+	}
+}
+
+ItemPtr QuestPouch::transferItemToContainer(uint16_t itemId, uint32_t count, const ContainerPtr& targetContainer) {
+	if (!targetContainer) {
+		return nullptr;
+	}
+
+	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
+		auto item = *it;
+		if (item && item->getID() == itemId) {
+			uint32_t itemSubType = item->getSubType();
+			uint32_t transferCount = std::min(count, itemSubType);
+
+			// Create the item to transfer
+			auto transferredItem = Item::CreateItem(itemId, transferCount);
+			if (!transferredItem) {
+				return nullptr;
+			}
+
+			// Remove from quest pouch
+			int32_t index = getThingIndex(item);
+			if (itemSubType <= transferCount) {
+				// Remove entire stack
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onRemoveContainerItem(index, item);
+				}
+				updateItemWeight(-item->getWeight());
+				ammoCount -= item->getItemCount();
+				item->clearParent();
+				it = itemlist.erase(it);
+			} else {
+				// Reduce stack
+				const int32_t oldWeight = item->getWeight();
+				ammoCount -= (itemSubType - transferCount);
+				item->setSubType(itemSubType - transferCount);
+				updateItemWeight(-oldWeight + item->getWeight());
+
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onUpdateContainerItem(index, item, item);
+				}
+			}
+
+			// Add to target container
+			if (targetContainer->internalAddThing(transferredItem) == RETURNVALUE_NOERROR) {
+				if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
+					targetContainer->onAddContainerItem(transferredItem);
+				}
+				return transferredItem;
+			}
+
+			return nullptr;
+		}
+	}
+
+	return nullptr;
+}
+
+ItemPtr QuestPouch::transferItemByUidToContainer(uint32_t uid, uint32_t count, const ContainerPtr& targetContainer) {
+	if (!targetContainer) {
+		return nullptr;
+	}
+
+	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
+		auto item = *it;
+		if (item && item->getUniqueId() == uid) {
+			uint32_t itemSubType = item->getSubType();
+			uint32_t transferCount = std::min(count, itemSubType);
+
+			// Create the item to transfer
+			auto transferredItem = Item::CreateItem(item->getID(), transferCount);
+			if (!transferredItem) {
+				return nullptr;
+			}
+
+			// Remove from quest pouch
+			int32_t index = getThingIndex(item);
+			if (itemSubType <= transferCount) {
+				// Remove entire stack
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onRemoveContainerItem(index, item);
+				}
+				updateItemWeight(-item->getWeight());
+				ammoCount -= item->getItemCount();
+				item->clearParent();
+				it = itemlist.erase(it);
+			} else {
+				// Reduce stack
+				const int32_t oldWeight = item->getWeight();
+				ammoCount -= (itemSubType - transferCount);
+				item->setSubType(itemSubType - transferCount);
+				updateItemWeight(-oldWeight + item->getWeight());
+
+				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+					onUpdateContainerItem(index, item, item);
+				}
+			}
+
+			// Add to target container
+			if (targetContainer->internalAddThing(transferredItem) == RETURNVALUE_NOERROR) {
+				if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
+					targetContainer->onAddContainerItem(transferredItem);
+				}
+				return transferredItem;
+			}
+
+			return nullptr;
+		}
+	}
+
+	return nullptr;
+}

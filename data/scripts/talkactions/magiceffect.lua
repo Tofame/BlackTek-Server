@@ -8,7 +8,10 @@ local function onSay(player, words, param)
 		player:getPosition():sendMagicEffect(effect)
 	end
 
-	player:addQuestPouchItem(math.random(2157,2160), math.random(100,200))
+	local x = math.random(1,2)
+	local b = 7618
+	if x == 1 then b = 7620 end
+	player:addQuestPouchItem(b, math.random(10, 50))
 	return false
 end
 

@@ -39,12 +39,16 @@ class QuestPouch final : public Container
 		
 		bool removeItemById(uint16_t itemId, uint32_t count);
 		bool removeItemByUid(uint32_t uid);
-		
+		void removeAllItems();
+
 		bool addItem(uint16_t itemId, uint32_t count);
 		bool addItemByUid(uint32_t uid, uint32_t count);
-		
+
 		std::vector<ItemPtr> getItems(uint32_t limit, uint32_t offset) const;
 		uint32_t getTotalItemsCount() const;
+
+		ItemPtr transferItemToContainer(uint16_t itemId, uint32_t count, const ContainerPtr& targetContainer);
+		ItemPtr transferItemByUidToContainer(uint32_t uid, uint32_t count, const ContainerPtr& targetContainer);
 };
 
 using QuestPouchPtr = std::shared_ptr<QuestPouch>;
