@@ -295,14 +295,11 @@ ItemPtr QuestPouch::transferItemToContainer(uint16_t itemId, uint32_t count, con
 			}
 
 			// Add to target container
-			if (targetContainer->internalAddThing(transferredItem) == RETURNVALUE_NOERROR) {
-				if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
-					targetContainer->onAddContainerItem(transferredItem);
-				}
-				return transferredItem;
+			targetContainer->internalAddThing(transferredItem);
+			if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
+				targetContainer->onAddContainerItem(transferredItem);
 			}
-
-			return nullptr;
+			return transferredItem;
 		}
 	}
 
@@ -350,14 +347,11 @@ ItemPtr QuestPouch::transferItemByUidToContainer(uint32_t uid, uint32_t count, c
 			}
 
 			// Add to target container
-			if (targetContainer->internalAddThing(transferredItem) == RETURNVALUE_NOERROR) {
-				if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
-					targetContainer->onAddContainerItem(transferredItem);
-				}
-				return transferredItem;
+			targetContainer->internalAddThing(transferredItem);
+			if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
+				targetContainer->onAddContainerItem(transferredItem);
 			}
-
-			return nullptr;
+			return transferredItem;
 		}
 	}
 
