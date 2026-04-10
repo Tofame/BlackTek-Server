@@ -8,7 +8,7 @@
 #include "player.h"
 #include "questpouch.h"
 
-QuestPouch::QuestPouch(uint16_t type) : Container(type, 100, false, true) {
+QuestPouch::QuestPouch(uint16_t type) : Container(type, items[type].maxItems, false, true) {
 	// Quest pouch: 100 slots, locked (items can only be added/removed via Lua), pagination enabled
 	container_subtype = ContainerSubType::None;
 	thing_subtype = ThingSubType::None;
