@@ -12,7 +12,6 @@ local config = {
 	{chanceFrom = 5041, chanceTo = 6034, itemId = 2079}, -- war horn
 	{chanceFrom = 6035, chanceTo = 6819, itemId = 2661}, -- scarf
 	{chanceFrom = 6820, chanceTo = 6985, itemId = 9971}, -- gold ingot
-	{chanceFrom = 6986, chanceTo = 7151, itemId = 25419}, -- shaggy ogre bag
 	{chanceFrom = 7152, chanceTo = 7360, itemId = 2162}, -- magic light wand
 	{chanceFrom = 7361, chanceTo = 7526, itemId = 6570}, -- surprise bag
 	{chanceFrom = 7527, chanceTo = 7944, itemId = 25387}, -- rift tapestry

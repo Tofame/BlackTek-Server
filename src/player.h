@@ -6,6 +6,7 @@
 
 #include "creature.h"
 #include "container.h"
+#include "questpouch.h"
 #include "cylinder.h"
 #include "outfit.h"
 #include "enums.h"

@@ -126464,8 +126464,9 @@ imbuementslots = 1
 [[items]]
 id = 25419
 article = "a"
-name = "shaggy ogre bag"
-weight = 800
+name = "quest pouch"
+containerSize = 20
+weight = 500
 
 [[items]]
 id = 25420

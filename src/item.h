@@ -568,6 +568,7 @@ enum class ItemSubType : uint8_t
 	DepotLocker,
 	Inbox,
 	StoreInbox,
+	QuestPouch,
 	RewardChest,
 	Teleport,
 	TrashHolder,

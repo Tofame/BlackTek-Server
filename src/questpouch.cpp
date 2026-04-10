@@ -12,7 +12,7 @@ QuestPouch::QuestPouch(uint16_t type) : Container(type, 100, false, true) {
 	// Quest pouch: 100 slots, locked (items can only be added/removed via Lua), pagination enabled
 	container_subtype = ContainerSubType::None;
 	thing_subtype = ThingSubType::None;
-	item_subtype = ItemSubType::None;
+	item_subtype = ItemSubType::QuestPouch;
 	cylinder_subtype = CylinderSubType::None;
 }
 

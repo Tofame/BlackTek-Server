@@ -26,6 +26,7 @@
 #include "talkaction.h"
 #include "weapons.h"
 #include "script.h"
+#include "questpouch.h"
 
 #include <fmt/format.h>
 
@@ -394,6 +395,10 @@ ThingPtr Game::internalGetThing(const PlayerPtr& player, const Position& pos, in
 	slots_t slot = static_cast<slots_t>(pos.y);
 	if (slot == CONST_SLOT_STORE_INBOX) {
 		return player->getStoreInbox();
+	}
+
+	if (slot == CONST_SLOT_QUEST_POUCH) {
+		return player->getQuestPouch();
 	}
 
 	return player->getInventoryItem(slot);
