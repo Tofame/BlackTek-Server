@@ -23,12 +23,6 @@ class QuestPouch final : public Container
 			return false;
 		}
 
-		CylinderPtr getParent() override;
-
-		CylinderPtr getRealParent() override {
-			return getParent();
-		}
-
 		// Override virtual method from Container
 		QuestPouchPtr getQuestPouch() override {
 			return static_shared_this<QuestPouch>();

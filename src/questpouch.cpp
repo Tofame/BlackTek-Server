@@ -46,11 +46,6 @@ void QuestPouch::postRemoveNotification(ThingPtr thing, CylinderPtr newParent, i
 	}
 }
 
-CylinderPtr QuestPouch::getParent() {
-	// Quest pouch has no physical parent in the game world
-	return nullptr;
-}
-
 uint32_t QuestPouch::getItemIdCount(uint16_t itemId) const {
 	uint32_t count = 0;
 	for (const auto& item : itemlist) {

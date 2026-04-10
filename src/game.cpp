@@ -4786,6 +4786,7 @@ PlayerPtr Game::MakePlayer(ProtocolGame_ptr client)
 	std::pmr::polymorphic_allocator<Player> allocator(&player_pool);
 	auto player = std::allocate_shared<Player>(allocator, client);
 	player->storeInbox->setParent(player);
+	player->questPouch->setParent(player);
 	return player;
 }
 
