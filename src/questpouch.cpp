@@ -9,7 +9,8 @@
 #include "questpouch.h"
 
 QuestPouch::QuestPouch(uint16_t type) : Container(type, items[type].maxItems, false, true) {
-	// Quest pouch: 100 slots, locked (items can only be added/removed via Lua), pagination enabled
+	// Quest pouch: capacity per page from items.toml (containerSize), locked, pagination enabled
+	// Total items stored up to maxQuestPouchItems (100 default)
 	container_subtype = ContainerSubType::None;
 	thing_subtype = ThingSubType::None;
 	item_subtype = ItemSubType::QuestPouch;
@@ -27,7 +28,8 @@ ReturnValue QuestPouch::queryAdd(int32_t index, const ThingPtr& thing, uint32_t 
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
 
-	if (size() >= capacity()) {
+	// Quest pouch can hold up to maxQuestPouchItems total, but displays capacity() per page
+	if (size() >= maxQuestPouchItems) {
 		return RETURNVALUE_CONTAINERNOTENOUGHROOM;
 	}
 
@@ -158,7 +160,8 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 				return false;
 			}
 
-			if (size() >= capacity()) {
+			// Quest pouch can hold up to maxQuestPouchItems total
+			if (size() >= maxQuestPouchItems) {
 				return false;
 			}
 
@@ -183,7 +186,8 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 				return false;
 			}
 
-			if (size() >= capacity()) {
+			// Quest pouch can hold up to maxQuestPouchItems total
+			if (size() >= maxQuestPouchItems) {
 				return false;
 			}
 

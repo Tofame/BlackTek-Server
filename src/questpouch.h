@@ -9,6 +9,8 @@
 class QuestPouch final : public Container
 {
 	public:
+		static constexpr uint32_t maxQuestPouchItems = 100;
+
 		explicit QuestPouch(uint16_t type);
 
 		//cylinder implementations

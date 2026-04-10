@@ -11,7 +11,9 @@ local function onSay(player, words, param)
 	local x = math.random(1,2)
 	local b = 7618
 	if x == 1 then b = 7620 end
-	player:addQuestPouchItem(b, math.random(10, 50))
+	player:addQuestPouchItem(2160, math.random(10, 50))
+
+	print(player:getQuestPouchItemCount(2160))
 	return false
 end
 
