@@ -13762,8 +13762,8 @@ int LuaScriptInterface::luaPlayerGetQuestPouchItemCount(lua_State* L)
 
 int LuaScriptInterface::luaPlayerAddQuestPouchItem(lua_State* L)
 {
-	// player:addQuestPouchItem("id", itemId, count) - creates new item
-	// player:addQuestPouchItem("uid", uid, count) - adds item by UID (not implemented yet)
+	// player:addQuestPouchItem("id", itemId, count) - creates new item in pouch
+	// player:addQuestPouchItem("uid", uid, count) - moves existing item from world/container to pouch
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
@@ -13784,7 +13784,38 @@ int LuaScriptInterface::luaPlayerAddQuestPouchItem(lua_State* L)
 	if (method == "id") {
 		pushBoolean(L, questPouch->addItem(value, count));
 	} else if (method == "uid") {
-		pushBoolean(L, false);
+		const auto item = getScriptEnv()->getItemByUID(value);
+		if (!item) {
+			pushBoolean(L, false);
+			return 1;
+		}
+
+		auto parent = item->getParent();
+		if (!parent || parent == VirtualCylinder::virtualCylinder) {
+			pushBoolean(L, false);
+			return 1;
+		}
+
+		uint32_t itemSubType = item->getSubType();
+		uint32_t moveCount = std::min(count, itemSubType);
+
+		if (moveCount == itemSubType) {
+			parent->removeThing(item, moveCount);
+			item->setParent(questPouch->getContainer());
+			questPouch->internalAddThing(item);
+			pushBoolean(L, true);
+		} else {
+			auto newItem = Item::CreateItem(item->getID(), moveCount);
+			if (!newItem) {
+				pushBoolean(L, false);
+				return 1;
+			}
+
+			parent->removeThing(item, moveCount);
+			newItem->setParent(questPouch->getContainer());
+			questPouch->internalAddThing(newItem);
+			pushBoolean(L, true);
+		}
 	} else {
 		pushBoolean(L, false);
 	}
