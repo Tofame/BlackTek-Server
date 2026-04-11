@@ -150,7 +150,7 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 
 	const ItemType& it = Item::items[itemId];
 
-	if (it.id == 0) {
+	if (it.getID() == 0) {
 		return false;
 	}
 
