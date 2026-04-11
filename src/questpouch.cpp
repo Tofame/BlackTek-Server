@@ -154,13 +154,14 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 		return false;
 	}
 
+	uint32_t requiredSlots = it.stackable ? (count + MAX_ITEM_STACK_SIZE - 1) / MAX_ITEM_STACK_SIZE : count;
+	if (size() + requiredSlots > maxQuestPouchItems) {
+		return false;
+	}
+
 	uint32_t itemsToAdd = count;
 	while (itemsToAdd > 0) {
-		uint16_t stackCount = it.stackable ? std::min<uint16_t>(itemsToAdd, 100) : 1;
-
-		if (size() >= maxQuestPouchItems) {
-			return false;
-		}
+		uint16_t stackCount = it.stackable ? std::min<uint16_t>(itemsToAdd, MAX_ITEM_STACK_SIZE) : 1;
 
 		auto newItem = Item::CreateItem(itemId, stackCount);
 		if (!newItem) {
@@ -221,6 +222,29 @@ uint32_t QuestPouch::getTotalItemsCount() const {
 	return count;
 }
 
+ItemPtr QuestPouch::findMatchingItem(const std::vector<ItemFilter>& filters, uint32_t count) const {
+	if (filters.empty() || count == 0) {
+		return nullptr;
+	}
+
+	for (const auto& item : itemlist) {
+		if (itemMatchesFilters(item, filters)) {
+			uint32_t itemSubType = item->getSubType();
+			uint32_t transferCount = std::min(count, itemSubType);
+
+			auto result = Item::CreateItem(item->getID(), transferCount);
+			if (!result) {
+				return nullptr;
+			}
+
+			result->setSubType(transferCount);
+			return result;
+		}
+	}
+
+	return nullptr;
+}
+
 ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filters, uint32_t count, const ContainerPtr& targetContainer) {
 	if (!targetContainer || filters.empty() || count == 0) {
 		return nullptr;
@@ -233,9 +257,11 @@ ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filte
 			uint32_t transferCount = std::min(count, itemSubType);
 
 			int32_t index = getThingIndex(item);
-			
-			// Remove or modify the item in the pouch
-			if (itemSubType <= transferCount) {
+
+			ItemPtr transferredItem;
+			if (transferCount == itemSubType) {
+				transferredItem = item;
+
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onRemoveContainerItem(index, item);
 				}
@@ -244,6 +270,11 @@ ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filte
 				item->clearParent();
 				it = itemlist.erase(it);
 			} else {
+				transferredItem = Item::CreateItem(item->getID(), transferCount);
+				if (!transferredItem) {
+					return nullptr;
+				}
+
 				uint32_t removeAmount = transferCount;
 				int32_t oldWeight = item->getWeight();
 				ammoCount -= removeAmount;
@@ -252,18 +283,6 @@ ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filte
 
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onUpdateContainerItem(index, item, item);
-				}
-			}
-
-			// Create the transferred item - preserves original item's attributes for full transfers
-			ItemPtr transferredItem;
-			if (transferCount == itemSubType && it == itemlist.end()) {
-				// If we transferred the entire stack before erase, we can reuse the item
-				transferredItem = item;
-			} else {
-				transferredItem = Item::CreateItem(item->getID(), transferCount);
-				if (!transferredItem) {
-					return nullptr;
 				}
 			}
 

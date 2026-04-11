@@ -50,6 +50,7 @@ class QuestPouch final : public Container
 		uint32_t countItems(const std::vector<ItemFilter>& filters) const;
 		std::vector<ItemPtr> getItems(const std::vector<ItemFilter>& filters, uint32_t limit = 0, uint32_t offset = 0) const;
 		uint32_t getTotalItemsCount() const;
+		ItemPtr findMatchingItem(const std::vector<ItemFilter>& filters, uint32_t count) const;
 		ItemPtr transferItemToContainer(const std::vector<ItemFilter>& filters, uint32_t count, const ContainerPtr& targetContainer);
 
 	private:

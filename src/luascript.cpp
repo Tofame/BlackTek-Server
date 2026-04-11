@@ -13995,6 +13995,20 @@ int LuaScriptInterface::luaPlayerTransferQuestPouchItemToBackpack(lua_State* L)
 		count = getNumber<uint32_t>(L, arg);
 	}
 
+	auto checkItem = questPouch->findMatchingItem(filters, count);
+	if (!checkItem) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	const ItemType& it = Item::items[checkItem->getID()];
+	uint32_t transferWeight = it.stackable ? checkItem->getBaseWeight() * checkItem->getSubType() : checkItem->getWeight();
+	if (!player->hasFlag(PlayerFlag_HasInfiniteCapacity) && !player->hasFlag(PlayerFlag_CannotPickupItem) && transferWeight > player->getFreeCapacity()) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You don't have enough capacity to carry this item.");
+		lua_pushnil(L);
+		return 1;
+	}
+
 	auto transferredItem = questPouch->transferItemToContainer(filters, count, backpackContainer);
 
 	if (transferredItem) {
