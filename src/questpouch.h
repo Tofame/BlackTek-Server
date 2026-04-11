@@ -5,6 +5,19 @@
 #define FS_QUESTPOUCH_H
 
 #include "container.h"
+#include <vector>
+#include <string>
+
+enum class ItemFilterType {
+	ItemID,
+	UID,
+	AID,
+};
+
+struct ItemFilter {
+	ItemFilterType type;
+	uint32_t value;
+};
 
 class QuestPouch final : public Container
 {
@@ -13,19 +26,16 @@ class QuestPouch final : public Container
 
 		explicit QuestPouch(uint16_t type);
 
-		//cylinder implementations
 		ReturnValue queryAdd(int32_t index, const ThingPtr& thing, uint32_t count,
 		                     uint32_t flags, CreaturePtr actor = nullptr) override;
 
 		void postAddNotification(ThingPtr thing, CylinderPtr oldParent, int32_t index, cylinderlink_t link = LINK_OWNER) override;
 		void postRemoveNotification(ThingPtr thing, CylinderPtr newParent, int32_t index, cylinderlink_t link = LINK_OWNER) override;
 
-		//overrides
 		bool canRemove() const override {
 			return false;
 		}
 
-		// Override virtual method from Container
 		QuestPouchPtr getQuestPouch() override {
 			return static_shared_this<QuestPouch>();
 		}
@@ -34,23 +44,16 @@ class QuestPouch final : public Container
 			return static_shared_this<const QuestPouch>();
 		}
 
-		// Quest pouch specific methods
-		uint32_t getItemIdCount(uint16_t itemId) const;
-		uint32_t getItemByAidCount(int32_t aid) const;
-		uint32_t getItemByUid(uint32_t uid) const;
-		
-		bool removeItemById(uint16_t itemId, uint32_t count);
-		bool removeItemByUid(uint32_t uid);
-		void removeAllItems();
-
 		bool addItem(uint16_t itemId, uint32_t count);
-		bool addItemByUid(uint32_t uid, uint32_t count);
-
-		std::vector<ItemPtr> getItems(uint32_t limit, uint32_t offset) const;
+		bool removeItems(const std::vector<ItemFilter>& filters, uint32_t count = 1);
+		void removeAllItems();
+		uint32_t countItems(const std::vector<ItemFilter>& filters) const;
+		std::vector<ItemPtr> getItems(const std::vector<ItemFilter>& filters, uint32_t limit = 0, uint32_t offset = 0) const;
 		uint32_t getTotalItemsCount() const;
+		ItemPtr transferItemToContainer(const std::vector<ItemFilter>& filters, uint32_t count, const ContainerPtr& targetContainer);
 
-		ItemPtr transferItemToContainer(uint16_t itemId, uint32_t count, const ContainerPtr& targetContainer);
-		ItemPtr transferItemByUidToContainer(uint32_t uid, uint32_t count, const ContainerPtr& targetContainer);
+	private:
+		bool itemMatchesFilters(const ItemPtr& item, const std::vector<ItemFilter>& filters) const;
 };
 
 using QuestPouchPtr = std::shared_ptr<QuestPouch>;

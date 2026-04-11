@@ -9,8 +9,6 @@
 #include "questpouch.h"
 
 QuestPouch::QuestPouch(uint16_t type) : Container(type, items[type].maxItems, false, true) {
-	// Quest pouch: capacity per page from items.toml (containerSize), locked, pagination enabled
-	// Total items stored up to maxQuestPouchItems (100 default)
 	container_subtype = ContainerSubType::None;
 	thing_subtype = ThingSubType::None;
 	item_subtype = ItemSubType::QuestPouch;
@@ -19,7 +17,6 @@ QuestPouch::QuestPouch(uint16_t type) : Container(type, items[type].maxItems, fa
 
 ReturnValue QuestPouch::queryAdd(int32_t index, const ThingPtr& thing, uint32_t count,
                                  uint32_t flags, CreaturePtr actor) {
-	// Only allow adding items with FLAG_NOLIMIT (from Lua or game system)
 	if (!(flags & FLAG_NOLIMIT)) {
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
@@ -28,7 +25,6 @@ ReturnValue QuestPouch::queryAdd(int32_t index, const ThingPtr& thing, uint32_t 
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
 
-	// Quest pouch can hold up to maxQuestPouchItems total, but displays capacity() per page
 	if (size() >= maxQuestPouchItems) {
 		return RETURNVALUE_CONTAINERNOTENOUGHROOM;
 	}
@@ -48,49 +44,59 @@ void QuestPouch::postRemoveNotification(ThingPtr thing, CylinderPtr newParent, i
 	}
 }
 
-uint32_t QuestPouch::getItemIdCount(uint16_t itemId) const {
+bool QuestPouch::itemMatchesFilters(const ItemPtr& item, const std::vector<ItemFilter>& filters) const {
+	if (!item || filters.empty()) {
+		return false;
+	}
+
+	for (const auto& filter : filters) {
+		switch (filter.type) {
+			case ItemFilterType::ItemID:
+				if (item->getID() != filter.value) {
+					return false;
+				}
+				break;
+			case ItemFilterType::UID:
+				if (item->getUniqueId() != filter.value) {
+					return false;
+				}
+				break;
+			case ItemFilterType::AID:
+				if (item->getActionId() != filter.value) {
+					return false;
+				}
+				break;
+		}
+	}
+	return true;
+}
+
+uint32_t QuestPouch::countItems(const std::vector<ItemFilter>& filters) const {
 	uint32_t count = 0;
 	for (const auto& item : itemlist) {
-		if (item && item->getID() == itemId) {
+		if (itemMatchesFilters(item, filters)) {
 			count += item->getSubType();
 		}
 	}
 	return count;
 }
 
-uint32_t QuestPouch::getItemByAidCount(int32_t aid) const {
-	uint32_t count = 0;
-	for (const auto& item : itemlist) {
-		if (item && item->getActionId() == aid) {
-			count += item->getSubType();
-		}
+bool QuestPouch::removeItems(const std::vector<ItemFilter>& filters, uint32_t count) {
+	if (filters.empty() || count == 0) {
+		return false;
 	}
-	return count;
-}
 
-uint32_t QuestPouch::getItemByUid(uint32_t uid) const {
-	for (const auto& item : itemlist) {
-		if (item && item->getUniqueId() == uid) {
-			return item->getSubType();
-		}
-	}
-	return 0;
-}
-
-bool QuestPouch::removeItemById(uint16_t itemId, uint32_t count) {
 	uint32_t remaining = count;
 
 	for (auto it = itemlist.begin(); it != itemlist.end() && remaining > 0;) {
 		auto item = *it;
-		if (item && item->getID() == itemId) {
+		if (itemMatchesFilters(item, filters)) {
 			uint32_t itemSubType = item->getSubType();
 			int32_t index = getThingIndex(item);
 
 			if (itemSubType <= remaining) {
-				// Remove entire stack
 				remaining -= itemSubType;
 
-				// Send update to client if container has a parent
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onRemoveContainerItem(index, item);
 				}
@@ -100,13 +106,11 @@ bool QuestPouch::removeItemById(uint16_t itemId, uint32_t count) {
 				item->clearParent();
 				it = itemlist.erase(it);
 			} else {
-				// Reduce stack size
 				const int32_t oldWeight = item->getWeight();
 				ammoCount -= (itemSubType - remaining);
 				item->setSubType(itemSubType - remaining);
 				updateItemWeight(-oldWeight + item->getWeight());
 
-				// Send update to client if container has a parent
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onUpdateContainerItem(index, item, item);
 				}
@@ -122,25 +126,20 @@ bool QuestPouch::removeItemById(uint16_t itemId, uint32_t count) {
 	return remaining == 0;
 }
 
-bool QuestPouch::removeItemByUid(uint32_t uid) {
-	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
+void QuestPouch::removeAllItems() {
+	for (auto it = itemlist.begin(); it != itemlist.end();) {
 		auto item = *it;
-		if (item && item->getUniqueId() == uid) {
-			int32_t index = getThingIndex(item);
+		int32_t index = getThingIndex(item);
 
-			// Send update to client if container has a parent
-			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-				onRemoveContainerItem(index, item);
-			}
-
-			updateItemWeight(-item->getWeight());
-			ammoCount -= item->getItemCount();
-			item->clearParent();
-			itemlist.erase(it);
-			return true;
+		if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+			onRemoveContainerItem(index, item);
 		}
+
+		updateItemWeight(-item->getWeight());
+		ammoCount -= item->getItemCount();
+		item->clearParent();
+		it = itemlist.erase(it);
 	}
-	return false;
 }
 
 bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
@@ -151,7 +150,6 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 	const ItemType& it = Item::items[itemId];
 
 	if (it.stackable) {
-		// For stackable items, create stacks of up to 100
 		uint32_t remaining = count;
 		while (remaining > 0) {
 			uint16_t stackCount = std::min<uint16_t>(remaining, 100);
@@ -160,18 +158,15 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 				return false;
 			}
 
-			// Quest pouch can hold up to maxQuestPouchItems total
 			if (size() >= maxQuestPouchItems) {
 				return false;
 			}
 
-			// Add item and trigger notification
 			newItem->setParent(getContainer());
 			itemlist.push_front(newItem);
 			updateItemWeight(newItem->getWeight());
 			ammoCount += newItem->getItemCount();
 
-			// Send update to client if container has a parent
 			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 				onAddContainerItem(newItem);
 			}
@@ -179,25 +174,21 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 			remaining -= stackCount;
 		}
 	} else {
-		// For non-stackable items, create individual items
 		for (uint32_t i = 0; i < count; i++) {
 			auto newItem = Item::CreateItem(itemId, 1);
 			if (!newItem) {
 				return false;
 			}
 
-			// Quest pouch can hold up to maxQuestPouchItems total
 			if (size() >= maxQuestPouchItems) {
 				return false;
 			}
 
-			// Add item and trigger notification
 			newItem->setParent(getContainer());
 			itemlist.push_front(newItem);
 			updateItemWeight(newItem->getWeight());
 			ammoCount += newItem->getItemCount();
 
-			// Send update to client if container has a parent
 			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 				onAddContainerItem(newItem);
 			}
@@ -207,27 +198,32 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 	return true;
 }
 
-bool QuestPouch::addItemByUid(uint32_t uid, uint32_t count) {
-	// This method would require a game-wide UID lookup which is complex
-	// For now, use addItem(itemId, count) instead
-	return false;
-}
-
-std::vector<ItemPtr> QuestPouch::getItems(uint32_t limit, uint32_t offset) const {
+std::vector<ItemPtr> QuestPouch::getItems(const std::vector<ItemFilter>& filters, uint32_t limit, uint32_t offset) const {
 	std::vector<ItemPtr> result;
-	uint32_t index = 0;
-	
-	for (const auto& item : itemlist) {
-		if (index >= offset && result.size() < limit) {
-			result.push_back(item);
+	bool getAll = filters.empty() || (limit == 0 && offset == 0);
+
+	if (getAll) {
+		for (const auto& item : itemlist) {
+			if (filters.empty() || itemMatchesFilters(item, filters)) {
+				result.push_back(item);
+			}
 		}
-		++index;
-		
-		if (result.size() >= limit) {
-			break;
+		return result;
+	}
+
+	uint32_t index = 0;
+	for (const auto& item : itemlist) {
+		if (itemMatchesFilters(item, filters)) {
+			if (index >= offset) {
+				result.push_back(item);
+				if (result.size() >= limit) {
+					break;
+				}
+			}
+			++index;
 		}
 	}
-	
+
 	return result;
 }
 
@@ -241,96 +237,24 @@ uint32_t QuestPouch::getTotalItemsCount() const {
 	return count;
 }
 
-void QuestPouch::removeAllItems() {
-	for (auto it = itemlist.begin(); it != itemlist.end();) {
-		auto item = *it;
-		int32_t index = getThingIndex(item);
-
-		// Send update to client if container has a parent
-		if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-			onRemoveContainerItem(index, item);
-		}
-
-		updateItemWeight(-item->getWeight());
-		ammoCount -= item->getItemCount();
-		item->clearParent();
-		it = itemlist.erase(it);
-	}
-}
-
-ItemPtr QuestPouch::transferItemToContainer(uint16_t itemId, uint32_t count, const ContainerPtr& targetContainer) {
-	if (!targetContainer) {
+ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filters, uint32_t count, const ContainerPtr& targetContainer) {
+	if (!targetContainer || filters.empty()) {
 		return nullptr;
 	}
 
 	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
 		auto item = *it;
-		if (item && item->getID() == itemId) {
+		if (itemMatchesFilters(item, filters)) {
 			uint32_t itemSubType = item->getSubType();
 			uint32_t transferCount = std::min(count, itemSubType);
 
-			// Create the item to transfer
-			auto transferredItem = Item::CreateItem(itemId, transferCount);
-			if (!transferredItem) {
-				return nullptr;
-			}
-
-			// Remove from quest pouch
-			int32_t index = getThingIndex(item);
-			if (itemSubType <= transferCount) {
-				// Remove entire stack
-				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-					onRemoveContainerItem(index, item);
-				}
-				updateItemWeight(-item->getWeight());
-				ammoCount -= item->getItemCount();
-				item->clearParent();
-				it = itemlist.erase(it);
-			} else {
-				// Reduce stack
-				const int32_t oldWeight = item->getWeight();
-				ammoCount -= (itemSubType - transferCount);
-				item->setSubType(itemSubType - transferCount);
-				updateItemWeight(-oldWeight + item->getWeight());
-
-				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-					onUpdateContainerItem(index, item, item);
-				}
-			}
-
-			// Add to target container
-			targetContainer->internalAddThing(transferredItem);
-			if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
-				targetContainer->onAddContainerItem(transferredItem);
-			}
-			return transferredItem;
-		}
-	}
-
-	return nullptr;
-}
-
-ItemPtr QuestPouch::transferItemByUidToContainer(uint32_t uid, uint32_t count, const ContainerPtr& targetContainer) {
-	if (!targetContainer) {
-		return nullptr;
-	}
-
-	for (auto it = itemlist.begin(); it != itemlist.end(); ++it) {
-		auto item = *it;
-		if (item && item->getUniqueId() == uid) {
-			uint32_t itemSubType = item->getSubType();
-			uint32_t transferCount = std::min(count, itemSubType);
-
-			// Create the item to transfer
 			auto transferredItem = Item::CreateItem(item->getID(), transferCount);
 			if (!transferredItem) {
 				return nullptr;
 			}
 
-			// Remove from quest pouch
 			int32_t index = getThingIndex(item);
 			if (itemSubType <= transferCount) {
-				// Remove entire stack
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onRemoveContainerItem(index, item);
 				}
@@ -339,7 +263,6 @@ ItemPtr QuestPouch::transferItemByUidToContainer(uint32_t uid, uint32_t count, c
 				item->clearParent();
 				it = itemlist.erase(it);
 			} else {
-				// Reduce stack
 				const int32_t oldWeight = item->getWeight();
 				ammoCount -= (itemSubType - transferCount);
 				item->setSubType(itemSubType - transferCount);
@@ -350,7 +273,6 @@ ItemPtr QuestPouch::transferItemByUidToContainer(uint32_t uid, uint32_t count, c
 				}
 			}
 
-			// Add to target container
 			targetContainer->internalAddThing(transferredItem);
 			if (targetContainer->getParent() && (targetContainer->getParent() != VirtualCylinder::virtualCylinder)) {
 				targetContainer->onAddContainerItem(transferredItem);

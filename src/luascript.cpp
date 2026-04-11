@@ -13722,11 +13722,14 @@ int LuaScriptInterface::luaPlayerGetQuestPouch(lua_State* L)
 
 int LuaScriptInterface::luaPlayerGetQuestPouchItemCount(lua_State* L)
 {
-	// player:getQuestPouchItemCount(itemId or aid or uid)
+	// player:getQuestPouchItemCount({filterType1, value1}, {filterType2, value2}, ...)
+	// filterType: "id", "uid", or "aid"
+	// Example: player:getQuestPouchItemCount({"aid", 2001})
+	// Example: player:getQuestPouchItemCount({"aid", 2000}, {"id", 2160})
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
-		lua_pushnil(L);
+		lua_pushnumber(L, 0);
 		return 1;
 	}
 
@@ -13736,28 +13739,31 @@ int LuaScriptInterface::luaPlayerGetQuestPouchItemCount(lua_State* L)
 		return 1;
 	}
 
-	if (lua_isnumber(L, 2)) {
-		int32_t param = getNumber<int32_t>(L, 2);
-		
-		// Check if it's a positive item ID
-		if (param > 0 && param <= 65535) {
-			lua_pushnumber(L, questPouch->getItemIdCount(param));
-		} else if (param < 0) {
-			// Negative values for action ID
-			lua_pushnumber(L, questPouch->getItemByAidCount(-param));
-		} else {
-			lua_pushnumber(L, 0);
+	std::vector<ItemFilter> filters;
+	int arg = 2;
+	while (lua_istable(L, arg)) {
+		std::string filterType = getFieldString(L, arg, "1");
+		uint32_t value = getField<uint32_t>(L, arg, "2");
+		lua_pop(L, 2);
+
+		if (filterType == "id") {
+			filters.push_back({ItemFilterType::ItemID, value});
+		} else if (filterType == "uid") {
+			filters.push_back({ItemFilterType::UID, value});
+		} else if (filterType == "aid") {
+			filters.push_back({ItemFilterType::AID, value});
 		}
-	} else {
-		lua_pushnumber(L, 0);
+		++arg;
 	}
-	
+
+	lua_pushnumber(L, questPouch->countItems(filters));
 	return 1;
 }
 
 int LuaScriptInterface::luaPlayerAddQuestPouchItem(lua_State* L)
 {
-	// player:addQuestPouchItem(itemId, count)
+	// player:addQuestPouchItem("id", itemId, count) - creates new item
+	// player:addQuestPouchItem("uid", uid, count) - adds item by UID (not implemented yet)
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
@@ -13765,22 +13771,31 @@ int LuaScriptInterface::luaPlayerAddQuestPouchItem(lua_State* L)
 		return 1;
 	}
 
-	uint16_t itemId = getNumber<uint16_t>(L, 2);
-	uint32_t count = getNumber<uint32_t>(L, 3, 1);
-
 	auto questPouch = player->getQuestPouch();
 	if (!questPouch) {
 		pushBoolean(L, false);
 		return 1;
 	}
 
-	pushBoolean(L, questPouch->addItem(itemId, count));
+	std::string method = getString(L, 2);
+	uint32_t value = getNumber<uint32_t>(L, 3);
+	uint32_t count = getNumber<uint32_t>(L, 4, 1);
+
+	if (method == "id") {
+		pushBoolean(L, questPouch->addItem(value, count));
+	} else if (method == "uid") {
+		pushBoolean(L, false);
+	} else {
+		pushBoolean(L, false);
+	}
 	return 1;
 }
 
 int LuaScriptInterface::luaPlayerRemoveQuestPouchItem(lua_State* L)
 {
-	// player:removeQuestPouchItem(itemId or uid, count)
+	// player:removeQuestPouchItem({filterType1, value1}, {filterType2, value2}, ..., count)
+	// Example: player:removeQuestPouchItem({"uid", 12345})
+	// Example: player:removeQuestPouchItem({"id", 2160}, 5)
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
@@ -13794,29 +13809,41 @@ int LuaScriptInterface::luaPlayerRemoveQuestPouchItem(lua_State* L)
 		return 1;
 	}
 
-	if (lua_isnumber(L, 2)) {
-		int32_t param = getNumber<int32_t>(L, 2);
-		uint32_t count = getNumber<uint32_t>(L, 3, 1);
-		
-		// Check if it's a positive item ID or UID
-		if (param > 0 && param <= 65535) {
-			pushBoolean(L, questPouch->removeItemById(param, count));
-		} else if (param > 65535) {
-			// Likely a UID
-			pushBoolean(L, questPouch->removeItemByUid(param));
-		} else {
-			pushBoolean(L, false);
-		}
-	} else {
-		pushBoolean(L, false);
-	}
+	std::vector<ItemFilter> filters;
+	int arg = 2;
+	int top = lua_gettop(L);
 	
+	while (arg < top && lua_istable(L, arg)) {
+		std::string filterType = getFieldString(L, arg, "1");
+		uint32_t value = getField<uint32_t>(L, arg, "2");
+		lua_pop(L, 2);
+
+		if (filterType == "id") {
+			filters.push_back({ItemFilterType::ItemID, value});
+		} else if (filterType == "uid") {
+			filters.push_back({ItemFilterType::UID, value});
+		} else if (filterType == "aid") {
+			filters.push_back({ItemFilterType::AID, value});
+		}
+		++arg;
+	}
+
+	uint32_t count = 1;
+	if (arg <= top && lua_isnumber(L, arg)) {
+		count = getNumber<uint32_t>(L, arg);
+	}
+
+	pushBoolean(L, questPouch->removeItems(filters, count));
 	return 1;
 }
 
 int LuaScriptInterface::luaPlayerGetQuestPouchItems(lua_State* L)
 {
-	// player:getQuestPouchItems(limit, offset)
+	// player:getQuestPouchItems({filterType1, value1}, ..., limit, offset)
+	// If limit and offset are both 0 (or not provided), returns ALL matching items
+	// Example: player:getQuestPouchItems() - gets all items
+	// Example: player:getQuestPouchItems({"aid", 2001}) - gets all items with aid 2001
+	// Example: player:getQuestPouchItems({"id", 2160}, 10, 5) - gets 10 items with id 2160, starting from offset 5
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
@@ -13830,12 +13857,39 @@ int LuaScriptInterface::luaPlayerGetQuestPouchItems(lua_State* L)
 		return 1;
 	}
 
-	uint32_t limit = getNumber<uint32_t>(L, 2, 50);
-	uint32_t offset = getNumber<uint32_t>(L, 3, 0);
-
-	auto items = questPouch->getItems(limit, offset);
-	lua_createtable(L, items.size(), 0);
+	std::vector<ItemFilter> filters;
+	int arg = 2;
+	int top = lua_gettop(L);
 	
+	while (arg < top - 1 && lua_istable(L, arg)) {
+		std::string filterType = getFieldString(L, arg, "1");
+		uint32_t value = getField<uint32_t>(L, arg, "2");
+		lua_pop(L, 2);
+
+		if (filterType == "id") {
+			filters.push_back({ItemFilterType::ItemID, value});
+		} else if (filterType == "uid") {
+			filters.push_back({ItemFilterType::UID, value});
+		} else if (filterType == "aid") {
+			filters.push_back({ItemFilterType::AID, value});
+		}
+		++arg;
+	}
+
+	uint32_t limit = 0;
+	uint32_t offset = 0;
+	
+	if (arg <= top && lua_isnumber(L, arg)) {
+		limit = getNumber<uint32_t>(L, arg);
+		++arg;
+	}
+	if (arg <= top && lua_isnumber(L, arg)) {
+		offset = getNumber<uint32_t>(L, arg);
+	}
+
+	auto items = questPouch->getItems(filters, limit, offset);
+	lua_createtable(L, items.size(), 0);
+
 	int index = 1;
 	for (const auto& item : items) {
 		pushSharedPtr(L, item);
@@ -13889,7 +13943,9 @@ int LuaScriptInterface::luaPlayerRemoveAllQuestPouchItems(lua_State* L)
 
 int LuaScriptInterface::luaPlayerTransferQuestPouchItemToBackpack(lua_State* L)
 {
-	// player:transferQuestPouchItemToBackpack(itemId or uid, count)
+	// player:transferQuestPouchItemToBackpack({filterType1, value1}, ..., count)
+	// Example: player:transferQuestPouchItemToBackpack({"uid", 12345})
+	// Example: player:transferQuestPouchItemToBackpack({"id", 2160}, {"aid", 2001}, 5)
 	const auto player = getSharedPtr<Player>(L, 1);
 	if (!player) {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
@@ -13903,7 +13959,6 @@ int LuaScriptInterface::luaPlayerTransferQuestPouchItemToBackpack(lua_State* L)
 		return 1;
 	}
 
-	// Get the player's backpack (CONST_SLOT_BACKPACK = 3)
 	auto backpack = player->getInventoryItem(CONST_SLOT_BACKPACK);
 	if (!backpack) {
 		lua_pushnil(L);
@@ -13916,27 +13971,31 @@ int LuaScriptInterface::luaPlayerTransferQuestPouchItemToBackpack(lua_State* L)
 		return 1;
 	}
 
-	if (!lua_isnumber(L, 2)) {
-		lua_pushnil(L);
-		return 1;
+	std::vector<ItemFilter> filters;
+	int arg = 2;
+	int top = lua_gettop(L);
+	
+	while (arg < top && lua_istable(L, arg)) {
+		std::string filterType = getFieldString(L, arg, "1");
+		uint32_t value = getField<uint32_t>(L, arg, "2");
+		lua_pop(L, 2);
+
+		if (filterType == "id") {
+			filters.push_back({ItemFilterType::ItemID, value});
+		} else if (filterType == "uid") {
+			filters.push_back({ItemFilterType::UID, value});
+		} else if (filterType == "aid") {
+			filters.push_back({ItemFilterType::AID, value});
+		}
+		++arg;
 	}
 
-	int32_t param = getNumber<int32_t>(L, 2);
-	uint32_t count = getNumber<uint32_t>(L, 3, 1);
-
-	ItemPtr transferredItem;
-
-	// Check if param is a valid item ID (positive) or UID (large positive number)
-	if (param > 0 && param <= 65535) {
-		// It's an item ID
-		transferredItem = questPouch->transferItemToContainer(param, count, backpackContainer);
-	} else if (param > 65535) {
-		// It's likely a UID
-		transferredItem = questPouch->transferItemByUidToContainer(param, count, backpackContainer);
-	} else {
-		lua_pushnil(L);
-		return 1;
+	uint32_t count = 1;
+	if (arg <= top && lua_isnumber(L, arg)) {
+		count = getNumber<uint32_t>(L, arg);
 	}
+
+	auto transferredItem = questPouch->transferItemToContainer(filters, count, backpackContainer);
 
 	if (transferredItem) {
 		pushSharedPtr(L, transferredItem);
