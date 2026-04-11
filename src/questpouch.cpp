@@ -106,10 +106,11 @@ bool QuestPouch::removeItems(const std::vector<ItemFilter>& filters, uint32_t co
 				item->clearParent();
 				it = itemlist.erase(it);
 			} else {
-				const int32_t oldWeight = item->getWeight();
-				ammoCount -= (itemSubType - remaining);
-				item->setSubType(itemSubType - remaining);
-				updateItemWeight(-oldWeight + item->getWeight());
+				uint32_t removeAmount = remaining;
+				int32_t oldWeight = item->getWeight();
+				ammoCount -= removeAmount;
+				item->setSubType(itemSubType - removeAmount);
+				updateItemWeight(item->getWeight() - oldWeight);
 
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onUpdateContainerItem(index, item, item);
@@ -149,50 +150,33 @@ bool QuestPouch::addItem(uint16_t itemId, uint32_t count) {
 
 	const ItemType& it = Item::items[itemId];
 
-	if (it.stackable) {
-		uint32_t remaining = count;
-		while (remaining > 0) {
-			uint16_t stackCount = std::min<uint16_t>(remaining, 100);
-			auto newItem = Item::CreateItem(itemId, stackCount);
-			if (!newItem) {
-				return false;
-			}
+	if (it.id == 0) {
+		return false;
+	}
 
-			if (size() >= maxQuestPouchItems) {
-				return false;
-			}
+	uint32_t itemsToAdd = count;
+	while (itemsToAdd > 0) {
+		uint16_t stackCount = it.stackable ? std::min<uint16_t>(itemsToAdd, 100) : 1;
 
-			newItem->setParent(getContainer());
-			itemlist.push_front(newItem);
-			updateItemWeight(newItem->getWeight());
-			ammoCount += newItem->getItemCount();
-
-			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-				onAddContainerItem(newItem);
-			}
-
-			remaining -= stackCount;
+		if (size() >= maxQuestPouchItems) {
+			return false;
 		}
-	} else {
-		for (uint32_t i = 0; i < count; i++) {
-			auto newItem = Item::CreateItem(itemId, 1);
-			if (!newItem) {
-				return false;
-			}
 
-			if (size() >= maxQuestPouchItems) {
-				return false;
-			}
-
-			newItem->setParent(getContainer());
-			itemlist.push_front(newItem);
-			updateItemWeight(newItem->getWeight());
-			ammoCount += newItem->getItemCount();
-
-			if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
-				onAddContainerItem(newItem);
-			}
+		auto newItem = Item::CreateItem(itemId, stackCount);
+		if (!newItem) {
+			return false;
 		}
+
+		newItem->setParent(getContainer());
+		itemlist.push_front(newItem);
+		updateItemWeight(newItem->getWeight());
+		ammoCount += newItem->getItemCount();
+
+		if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
+			onAddContainerItem(newItem);
+		}
+
+		itemsToAdd -= stackCount;
 	}
 
 	return true;
@@ -238,7 +222,7 @@ uint32_t QuestPouch::getTotalItemsCount() const {
 }
 
 ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filters, uint32_t count, const ContainerPtr& targetContainer) {
-	if (!targetContainer || filters.empty()) {
+	if (!targetContainer || filters.empty() || count == 0) {
 		return nullptr;
 	}
 
@@ -248,12 +232,9 @@ ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filte
 			uint32_t itemSubType = item->getSubType();
 			uint32_t transferCount = std::min(count, itemSubType);
 
-			auto transferredItem = Item::CreateItem(item->getID(), transferCount);
-			if (!transferredItem) {
-				return nullptr;
-			}
-
 			int32_t index = getThingIndex(item);
+			
+			// Remove or modify the item in the pouch
 			if (itemSubType <= transferCount) {
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onRemoveContainerItem(index, item);
@@ -263,13 +244,26 @@ ItemPtr QuestPouch::transferItemToContainer(const std::vector<ItemFilter>& filte
 				item->clearParent();
 				it = itemlist.erase(it);
 			} else {
-				const int32_t oldWeight = item->getWeight();
-				ammoCount -= (itemSubType - transferCount);
-				item->setSubType(itemSubType - transferCount);
-				updateItemWeight(-oldWeight + item->getWeight());
+				uint32_t removeAmount = transferCount;
+				int32_t oldWeight = item->getWeight();
+				ammoCount -= removeAmount;
+				item->setSubType(itemSubType - removeAmount);
+				updateItemWeight(item->getWeight() - oldWeight);
 
 				if (getParent() && (getParent() != VirtualCylinder::virtualCylinder)) {
 					onUpdateContainerItem(index, item, item);
+				}
+			}
+
+			// Create the transferred item - preserves original item's attributes for full transfers
+			ItemPtr transferredItem;
+			if (transferCount == itemSubType && it == itemlist.end()) {
+				// If we transferred the entire stack before erase, we can reuse the item
+				transferredItem = item;
+			} else {
+				transferredItem = Item::CreateItem(item->getID(), transferCount);
+				if (!transferredItem) {
+					return nullptr;
 				}
 			}
 
