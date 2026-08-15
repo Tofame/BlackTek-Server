@@ -88,12 +88,11 @@ class Guild
 			this->motd = motd;
 		}
 
-		uint32_t getGuildBankBalance() const {
+		uint64_t getGuildBankBalance() const {
 			return guildBankBalance;
 		}
-		void setGuildBankBalance(uint32_t balance) {
-			guildBankBalance = balance;
-		}
+		void setGuildBankBalance(uint64_t balance, bool saveToDb = false);
+		bool transferMoneyTo(std::shared_ptr<Guild> targetGuild, uint64_t amount, bool saveToDb = false);
 
 		bool addWar(uint32_t guildId, GuildWar& war);
 		bool removeWar(uint32_t guildId);

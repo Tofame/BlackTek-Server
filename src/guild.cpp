@@ -223,3 +223,22 @@ void IOGuild::getWarList(const Guild_ptr& guild)
 		guild->addWar(opponentId, war);
 	} while (result->next());
 }
+
+void Guild::setGuildBankBalance(uint64_t balance, bool saveToDb)
+{
+	guildBankBalance = balance;
+	if (saveToDb) {
+		Database::getInstance().executeQuery(fmt::format("UPDATE `guilds` SET `balance` = {:d} WHERE `id` = {:d}", balance, id));
+	}
+}
+
+bool Guild::transferMoneyTo(std::shared_ptr<Guild> targetGuild, uint64_t amount, bool saveToDb)
+{
+	if (!targetGuild || targetGuild->getId() == id || amount == 0 || guildBankBalance < amount) {
+		return false;
+	}
+
+	setGuildBankBalance(guildBankBalance - amount, saveToDb);
+	targetGuild->setGuildBankBalance(targetGuild->getGuildBankBalance() + amount, saveToDb);
+	return true;
+}

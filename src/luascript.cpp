@@ -2946,6 +2946,9 @@ void LuaScriptInterface::registerFunctions()
 
 	registerMethod("Guild", "getMotd", luaGuildGetMotd);
 	registerMethod("Guild", "setMotd", luaGuildSetMotd);
+	registerMethod("Guild", "getBankBalance", luaGuildGetBankBalance);
+	registerMethod("Guild", "setBankBalance", luaGuildSetBankBalance);
+	registerMethod("Guild", "transferMoneyTo", luaGuildTransferMoneyTo);
 
 	// Group
 	registerClass("Group", "", luaGroupCreate);
@@ -14651,8 +14654,13 @@ int LuaScriptInterface::luaNpcGetSpectators(lua_State* L)
 // Guild
 int LuaScriptInterface::luaGuildCreate(lua_State* L)
 {
-	// Guild(id)
-	const uint32_t id = getNumber<uint32_t>(L, 2);
+	// Guild(idOrName)
+	uint32_t id = 0;
+	if (isNumber(L, 2)) {
+		id = getNumber<uint32_t>(L, 2);
+	} else if (isString(L, 2)) {
+		id = IOGuild::getGuildIdByName(getString(L, 2));
+	}
 
 	if (const auto guild = g_game.getGuild(id)) {
 		pushSharedPtr(L, guild);
@@ -14781,6 +14789,45 @@ int LuaScriptInterface::luaGuildSetMotd(lua_State* L)
 	if (const auto guild = getUserdata<Guild>(L, 1)) {
 		guild->setMotd(motd);
 		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaGuildGetBankBalance(lua_State* L)
+{
+	// guild:getBankBalance()
+	if (const auto guild = getUserdata<Guild>(L, 1)) {
+		lua_pushinteger(L, guild->getGuildBankBalance());
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaGuildSetBankBalance(lua_State* L)
+{
+	// guild:setBankBalance(balance[, saveToDb = false])
+	uint64_t balance = getNumber<uint64_t>(L, 2);
+	bool saveToDb = getBoolean(L, 3, false);
+	if (const auto guild = getUserdata<Guild>(L, 1)) {
+		guild->setGuildBankBalance(balance, saveToDb);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaGuildTransferMoneyTo(lua_State* L)
+{
+	// guild:transferMoneyTo(targetGuild, amount[, saveToDb = false])
+	std::shared_ptr<Guild> targetGuild = getSharedPtr<Guild>(L, 2);
+	uint64_t amount = getNumber<uint64_t>(L, 3);
+	bool saveToDb = getBoolean(L, 4, false);
+	if (const auto guild = getSharedPtr<Guild>(L, 1)) {
+		pushBoolean(L, guild->transferMoneyTo(targetGuild, amount, saveToDb));
 	} else {
 		lua_pushnil(L);
 	}

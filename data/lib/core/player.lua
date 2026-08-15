@@ -320,3 +320,52 @@ end
 function Player.hasGamemasterAccess(self)
 	return self:getGroup():getId() >= 4 and self:getAccountType() >= ACCOUNT_TYPE_GAMEMASTER
 end
+
+function Player.depositToGuildBank(self, amount)
+	local guild = self:getGuild()
+	if not guild then
+		return false
+	end
+
+	if not self:removeMoney(amount) then
+		return false
+	end
+
+	guild:addBankBalance(amount)
+	return true
+end
+
+function Player.withdrawFromGuildBank(self, amount)
+	local guild = self:getGuild()
+	if not guild then
+		return false
+	end
+
+	if self:getGuildLevel() < GUILDLEVEL_VICE then
+		return false
+	end
+
+	if not self:canCarryMoney(amount) then
+		return false
+	end
+
+	if not guild:removeBankBalance(amount) then
+		return false
+	end
+
+	self:addMoney(amount)
+	return true
+end
+
+function Player.transferGuildBankTo(self, targetGuild, amount)
+	local guild = self:getGuild()
+	if not guild or not targetGuild then
+		return false
+	end
+
+	if self:getGuildLevel() < GUILDLEVEL_LEADER then
+		return false
+	end
+
+	return guild:transferMoneyTo(targetGuild, amount)
+end

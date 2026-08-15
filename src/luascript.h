@@ -1375,6 +1375,9 @@ class LuaScriptInterface
 
 		static int luaGuildGetMotd(lua_State* L);
 		static int luaGuildSetMotd(lua_State* L);
+		static int luaGuildGetBankBalance(lua_State* L);
+		static int luaGuildSetBankBalance(lua_State* L);
+		static int luaGuildTransferMoneyTo(lua_State* L);
 
 		// Group
 		static int luaGroupCreate(lua_State* L);
